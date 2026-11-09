@@ -11,6 +11,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"strings"
 
@@ -37,15 +38,20 @@ func main() {
 
 // failure turns an error into a reply. When the cause isn't the app (no key, a rate
 // limit, a server error, a timeout or the network), tinyeval counts it as couldn't run.
-// Any other error, like a bad model name, is the reply, so the eval fails.
+// Any other error, like a bad model name or a bug in the app's code, is the reply, so the eval fails.
 func failure(err error) string {
 	var apierr *anthropic.Error
-	if !errors.As(err, &apierr) {
-		reason, _, _ := strings.Cut(err.Error(), "\n")
-		return "#tinyeval couldnt_run " + reason + "\n"
+	if errors.As(err, &apierr) {
+		reason := fmt.Sprintf("anthropic: %d %s", apierr.StatusCode, apierr.Type())
+		if apierr.StatusCode == 401 || apierr.StatusCode == 429 || apierr.StatusCode >= 500 {
+			return "#tinyeval couldnt_run " + reason + "\n"
+		}
+		return reason
 	}
-	reason := fmt.Sprintf("anthropic: %d %s", apierr.StatusCode, apierr.Type())
-	if apierr.StatusCode == 401 || apierr.StatusCode == 429 || apierr.StatusCode >= 500 {
+	reason, _, _ := strings.Cut(err.Error(), "\n")
+	var neterr net.Error
+	// The SDK's missing-credentials error is internal, so the worker checks the key itself.
+	if errors.As(err, &neterr) || errors.Is(err, context.DeadlineExceeded) || os.Getenv("ANTHROPIC_API_KEY") == "" {
 		return "#tinyeval couldnt_run " + reason + "\n"
 	}
 	return reason
