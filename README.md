@@ -8,7 +8,7 @@ Clone this repo or use it as a template. Then:
 
 ```sh
 export ANTHROPIC_API_KEY=sk-ant-...
-./tinyeval
+go tool tinyeval
 ```
 
 ```
@@ -24,9 +24,8 @@ All 3 evals passed (eval-results.json)
 
 - `support/support.go`: the bot. `Answer(ctx, message)` calls Claude with the official Go SDK.
 - `prompts/support.md`: the system prompt, embedded in the binary.
-- `cmd/evalworker/main.go`: builds the client once and answers each test case tinyeval sends it.
+- `cmd/evalworker/main.go`: builds the client once and hands each test case to `Answer` through tinyeval's worker helper.
 - `evals/support.sh`: three test cases, each checked by a regex, a judge or both.
-- `tinyeval`: the eval runner, one bash file.
 - `.github/workflows/evals.yml`: runs the evals on every pull request and push to main.
 
 ## Use it for your app
@@ -34,11 +33,21 @@ All 3 evals passed (eval-results.json)
 1. Replace `Answer` with your AI call. Keep the worker, so your app starts once per worker and not once per test case. Build your service's client once in the worker's `main`.
 2. Write your test cases in `evals/`. The [check lines](https://github.com/evalship-hq/tinyeval#writing-evals) cover regexes, JSON, your own graders and a model judge.
 
-When the API call fails for a reason that isn't your code, such as a missing key, a rate limit or a timeout, the worker replies `#tinyeval couldnt_run`. tinyeval then counts the test case as couldn't run, not as failed.
+When the API call fails for a reason that isn't your code, such as a missing key, a rate limit or a timeout, the test case couldn't run. tinyeval counts it apart from the failures, and the run still exits 1. An error or a panic in your own code fails the eval.
 
 ## In CI
 
 Add `ANTHROPIC_API_KEY` as a repository secret. The bot and tinyeval's judge both use it. The workflow builds the code, then runs each test case 3 times. A failing eval fails the job, so it can gate merges. The results upload as the `eval-results` artifact. Without the secret, the eval step is skipped with a notice.
+
+## Updating
+
+tinyeval is a Go tool, pinned in `go.mod`. Update it like any module:
+
+```sh
+go get -tool github.com/evalship-hq/tinyeval/go/cmd/tinyeval@latest
+```
+
+Dependabot checks weekly for new releases of tinyeval, the SDK and the workflow's actions, and opens a pull request for each. Those pull requests can't read repository secrets, so their eval step skips with the notice.
 
 ## Compare pull requests with main
 
