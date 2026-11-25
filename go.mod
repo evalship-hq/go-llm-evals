@@ -3,7 +3,7 @@ module github.com/evalship-hq/go-llm-evals
 go 1.27.3
 
 require (
-	github.com/anthropics/anthropic-sdk-go/v2 v2.7.0
+	github.com/anthropics/anthropic-sdk-go/v2 v2.13.0
 	github.com/evalship-hq/tinyeval/go v0.11.0
 )
 
